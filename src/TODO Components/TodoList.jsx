@@ -77,23 +77,17 @@ const TodoList = () => {
         return () => unsubscribe();
     }, []);
     
-    const handleGoogleLogin = () => {
-        const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-        const redirectUri = `${window.location.origin}/path-to-redirect`;
-    
-        const auth = window.gapi.auth2.getAuthInstance();
-        auth.signIn({
-          client_id: googleClientId,
-          scope: 'profile email',
-          redirect_uri: redirectUri,
-        }).then((response) => {
-          console.log('Logged in with Google:', response);
-          // Handle successful login
-        }).catch((error) => {
-          console.error('Error logging in with Google:', error);
-          // Handle error
-        });
-      };
+    const handleGoogleLogin = async () => {
+        console.log("handleGoogleLogin function triggered");
+        const provider = new GoogleAuthProvider();
+        try {
+            const result = await signInWithPopup(auth, provider);
+            console.log('User logged in:', result.user);
+            console.log('User UID:', auth.currentUser.uid);
+        } catch (error) {
+            console.error('Google login error:', error);
+        }
+    };
 
     const onHandleChangeItem = (e) => {
         setItem(e.target.value);
