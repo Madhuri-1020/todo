@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
+import { auth } from '../Firebase/firebaseConfig';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { collection, addDoc,updateDoc, doc, getDocs,deleteDoc } from 'firebase/firestore';
+import { db } from '../Firebase/firebaseConfig';
+
 
 const style = {
     borderRadius: '5px',
@@ -35,11 +40,51 @@ const SerchButton={
     borderRadius:'5px'
 }
 
+const LoginButton={
+    borderRadius:'5px',
+    backgroundColor:'rgb(226,167,111)',
+    color:'white',
+    border:'none'
+}
+
 const TodoList = () => {
     const [item, setItem] = useState('');
     const [addItem, setAddItem] = useState([]);
     const [editItem, setEditItem] = useState(null);
     const [searchItem, setSearchItem] = useState('');
+
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user) {
+                console.log("Current User UID:", user.uid);
+                
+                const fetchData = async () => {
+                    const querySnapshot = await getDocs(collection(db, 'todoLists'));
+                    const todos = [];
+                    querySnapshot.forEach((doc) => {
+                        todos.push({ ...doc.data(), id: doc.id });
+                    });
+                    setAddItem(todos);
+                };
+                fetchData();
+            } else {
+                console.log("Not logged in");
+            }
+        });
+    
+        return () => unsubscribe();
+    }, []);
+    
+    const handleGoogleLogin = async () => {
+        const provider = new GoogleAuthProvider();
+        try {
+            const result = await signInWithPopup(auth, provider);
+            console.log('User logged in:', result.user);
+            console.log('User UID:', auth.currentUser.uid);
+        } catch (error) {
+            console.error('Google login error:', error);
+        }
+    };
 
     const onHandleChangeItem = (e) => {
         setItem(e.target.value);
@@ -49,33 +94,98 @@ const TodoList = () => {
         setSearchItem(e.target.value);
     }
     
-    const ClickToAdd = () => {
-        if (item.trim() !== '') {
-            if (editItem !== null) {
-                const updateItem = [...addItem];
-                updateItem[editItem] = item;
-                setAddItem(updateItem);
-                setEditItem(null);
-            } else {
-                setAddItem([...addItem, item]);
+   const ClickToAdd= async () => {
+        if (item.trim() !== '' && auth.currentUser) {
+            try {
+                if (editItem !== null) {
+                    
+                    const todoRef = doc(db, 'todoLists', addItem[editItem].id);
+                    await updateDoc(todoRef, {
+                        text: item,
+                    });
+                    setAddItem(prevItems => {
+                        const updatedItems = [...prevItems];
+                        updatedItems[editItem].text = item;
+                        return updatedItems;
+                    });
+                    setEditItem(null);
+                } else {
+                    
+                    const docRef = await addDoc(collection(db, 'todoLists'), {
+                        text: item,
+                        userId: auth.currentUser.uid,
+                    });
+                    console.log("Todo added with ID: ", docRef.id);
+                    setAddItem([...addItem, { text: item, userId: auth.currentUser.uid, id: docRef.id }]);
+                }
+                setItem(''); 
+            } catch (error) {
+                console.error("Error adding/updating document: ", error);
             }
-
-            setItem('');
+        } else {
+            console.error("User not authenticated");
+            alert('Please login to add/edit todo');
         }
-    }
+    };
+    
+    
 
-    const ClickToDelete = (index) => {
-        const updateItem = [...addItem];
-        updateItem.splice(index, 1);
-        setAddItem(updateItem)
-    }
+   
+    const ClickToDelete = async (index) => {
+    try {
+        const todoRef = doc(db, 'todoLists', addItem[index].id);
+        
+        if (!auth.currentUser) {
+            console.error("User not authenticated");
+            alert('Please login to delete todo');
+            return;
+        }
 
+        console.log("Current User UID:", auth.currentUser.uid);
+        console.log("Todo User ID:", addItem[index].userId);
+
+        if (auth.currentUser.uid === addItem[index].userId) {
+            await deleteDoc(todoRef);
+            console.log("Todo deleted successfully");
+            alert('Todo deleted successfully');
+
+            
+            const updatedItems = addItem.filter((item, idx) => idx !== index);
+            setAddItem(updatedItems);
+        } else {
+            console.error("User does not have permission to delete this todo");
+            alert('You do not have permission to delete this todo');
+        }
+    } catch (error) {
+        console.error("Error deleting document: ", error);
+        alert('Failed to delete todo');
+    }
+};
+
+    
     const ClickToEdit = (index) => {
-        setItem(addItem[index]);
-        setEditItem(index);
-    }
+        if (!auth.currentUser) {
+            console.error("User not authenticated");
+            alert('Please login to edit todo');
+            return;
+        }
+
+        console.log("Current User UID:", auth.currentUser.uid);
+        console.log("Todo User ID:", addItem[index].userId);
+
+       
+        if (auth.currentUser.uid === addItem[index].userId) {
+            setItem(addItem[index].text);
+            setEditItem(index);
+        } else {
+            console.error("User does not have permission to edit this todo");
+            alert('You do not have permission to edit this todo');
+        }
+    };
+    
+    
     const ClickToSerch = () => {
-        alert(addItem.includes(searchItem)?'Item Found':'Item Not Found')
+        alert(addItem.some(item => item.text === searchItem)?'Item Found':'Item Not Found')
         setSearchItem('')
     }
 
@@ -108,6 +218,11 @@ const TodoList = () => {
                         <SearchIcon />
                     </button>
                 </div>
+                <button className="mt-2 p-2"
+                style={LoginButton}
+                onClick={handleGoogleLogin}>
+                    Login with Google
+                    </button>
                 <ul className="mt-3 ps-0">
                     <h4><u>All Tasks</u></h4>
                     {addItem.map((inputItem, index) => {
@@ -115,7 +230,7 @@ const TodoList = () => {
                             <li key={index} className=" mt-2 list-group-item d-flex justify-content-between align-items-center">
                                 <span>
                                     <input type="checkbox" className="me-1" />
-                                    {inputItem}
+                                    {inputItem.text}
                                 </span>
                                 <span>
                                     <button className="me-1"
