@@ -55,6 +55,8 @@ const TodoList = () => {
 
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged((user) => {
+            console.log("onAuthStateChanged triggered");
+
             if (user) {
                 console.log("Current User UID:", user.uid);
                 
@@ -76,6 +78,7 @@ const TodoList = () => {
     }, []);
     
     const handleGoogleLogin = async () => {
+        console.log("handleGoogleLogin function triggered");
         const provider = new GoogleAuthProvider();
         try {
             const result = await signInWithPopup(auth, provider);
