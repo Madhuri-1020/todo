@@ -84,6 +84,7 @@ const TodoList = () => {
             const result = await signInWithPopup(auth, provider);
             console.log('User logged in:', result.user);
             console.log('User UID:', auth.currentUser.uid);
+            alert("login successfull")
         } catch (error) {
             console.error('Google login error:', error);
         }
