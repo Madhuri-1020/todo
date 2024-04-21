@@ -7,7 +7,7 @@ import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { collection, addDoc, updateDoc, doc, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '../Firebase/firebaseConfig';
 
-// Styling add inout field in todo
+// Styling add input field in todo
 const style = {
     borderRadius: '5px',
 }
